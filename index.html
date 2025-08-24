@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#0a84ff">
+  <title>Dean Kath Rose — Tic Tac Toe</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --fg:#0b0b0f; --muted:#707584; --card:#ffffff;
+      --brand:#0a84ff; --line:#dfe2ea; --win:#22c55e;
+      --shadow:0 1px 2px rgba(0,0,0,.06), 0 8px 28px rgba(0,0,0,.08);
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --bg:#0f1115; --fg:#f5f7fb; --muted:#a6adbb; --card:#161a22; --line:#242936; --shadow:none; }
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+         background:var(--bg); color:var(--fg); display:flex; align-items:center; justify-content:center;}
+    .app{width:min(92vw,560px); padding:20px 18px 28px; background:var(--card); border:1px solid var(--line);
+         border-radius:20px; box-shadow:var(--shadow)}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .header{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px}
+    .title{font-weight:800; letter-spacing:.2px; font-size:20px}
+    .subtitle{font-size:12px; color:var(--muted)}
+    .board{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+           gap:10px; width:100%; aspect-ratio:1 / 1; margin-top:10px}
+    .cell{display:grid; place-items:center; font-weight:800; font-size:clamp(40px,12vw,72px);
+          border-radius:16px; border:2px solid var(--line); background:#fff; color:#0b0b0f;
+          user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; transition:transform .06s ease}
+    @media (prefers-color-scheme: dark){ .cell{background:#0e1117; color:#e5e7eb; border-color:#232a36} }
+    .cell:active{transform:scale(.98)}
+    .cell[disabled]{opacity:.8}
+    .win{ outline:3px solid var(--win) }
+    .status{margin-top:12px; font-weight:700}
+    .pill{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); color:var(--muted)}
+    button.btn{appearance:none; border:none; padding:12px 14px; border-radius:12px; font-weight:800; cursor:pointer}
+    .btn.primary{background:var(--brand); color:#fff}
+    .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line)}
+    .btn:active{transform:translateY(1px)}
+    .toolbar{margin-top:12px; display:flex; gap:10px; flex-wrap:wrap}
+    .score{display:flex; gap:8px; margin-top:10px}
+    .score .box{padding:8px 10px; border:1px solid var(--line); border-radius:12px; font-weight:800; font-size:13px}
+    .seg{display:flex; background:transparent; border:1px solid var(--line); border-radius:12px; overflow:hidden}
+    .seg button{padding:8px 10px; border:none; background:transparent; color:var(--muted); font-weight:800}
+    .seg button.active{background:var(--brand); color:#fff}
+    .fine{font-size:12px; color:var(--muted); margin-top:10px}
+    .grid{display:grid; gap:10px}
+    .hidden{display:none !important}
+  </style>
+</head>
+<body>
+  <main class="app" role="application" aria-label="Dean Kath Rose Tic Tac Toe">
+    <div class="header">
+      <div>
+        <div class="title">Dean Kath Rose</div>
+        <div class="subtitle">Tic Tac Toe — built for iPhone</div>
+      </div>
+      <span class="pill" id="modeLabel">2 Players</span>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1fr; align-items:center">
+      <div class="row" aria-label="Game modes">
+        <div class="seg" role="tablist" aria-label="Mode">
+          <button id="mode2p" role="tab" aria-selected="true" class="active">2 Players</button>
+          <button id="modeAi" role="tab" aria-selected="false">VS AI</button>
+        </div>
+        <div class="seg hidden" id="aiControls" role="tablist" aria-label="AI difficulty">
+          <button id="aiEasy" role="tab" class="active" aria-selected="true">Easy</button>
+          <button id="aiHard" role="tab" aria-selected="false">Unbeatable</button>
+        </div>
+        <div class="seg" role="tablist" aria-label="Play as">
+          <button id="playX" role="tab" class="active" aria-selected="true">Play X</button>
+          <button id="playO" role="tab" aria-selected="false">Play O</button>
+        </div>
+      </div>
+
+      <div class="board" id="board" aria-label="Board"></div>
+
+      <div class="status" id="status" role="status" aria-live="polite">X’s turn</div>
+
+      <div class="toolbar">
+        <button id="restart" class="btn ghost">Restart</button>
+        <button id="newGame" class="btn primary">New Game</button>
+        <button id="install" class="btn ghost">Add to Home Screen</button>
+      </div>
+
+      <div class="score" aria-label="Scoreboard">
+        <div class="box">X: <span id="scoreX">0</span></div>
+        <div class="box">O: <span id="scoreO">0</span></div>
+        <div class="box">Draws: <span id="scoreD">0</span></div>
+      </div>
+
+      <div class="fine">Tip: After it loads, Share → Add to Home Screen for an app icon.</div>
+    </div>
+  </main>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const modeLabel = document.getElementById('modeLabel');
+    const scoreXEl = document.getElementById('scoreX');
+    const scoreOEl = document.getElementById('scoreO');
+    const scoreDEl = document.getElementById('scoreD');
+    const mode2pBtn = document.getElementById('mode2p');
+    const modeAiBtn = document.getElementById('modeAi');
+    const aiControls = document.getElementById('aiControls');
+    const aiEasyBtn = document.getElementById('aiEasy');
+    const aiHardBtn = document.getElementById('aiHard');
+    const playXBtn = document.getElementById('playX');
+    const playOBtn = document.getElementById('playO');
+    const restartBtn = document.getElementById('restart');
+    const newGameBtn = document.getElementById('newGame');
+    const installBtn = document.getElementById('install');
+
+    const WINS = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+
+    let board = Array(9).fill(null);
+    let current = 'X';
+    let locked = false;
+    let mode = '2p';
+    let aiDifficulty = 'easy';
+    let humanPlays = 'X';
+    let score = { X:0, O:0, D:0 };
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('dkr_score') || '{}');
+      if (saved && typeof saved === 'object') score = Object.assign(score, saved);
+    } catch(e){}
+    updateScore();
+
+    const cells = [];
+    function buildBoard(){
+      boardEl.innerHTML = '';
+      cells.length = 0;
+      for (let i=0;i<9;i++){
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cell';
+        btn.setAttribute('aria-label','Cell '+(i+1));
+        btn.addEventListener('click', ()=>onCell(i, btn), {passive:true});
+        cells.push(btn);
+        boardEl.appendChild(btn);
+      }
+    }
+
+    function setTurnText(){
+      statusEl.textContent = locked ? statusEl.textContent : `${current}’s turn`;
+    }
+
+    function vibrate(ms){ if (navigator.vibrate) try{navigator.vibrate(ms);}catch(e){} }
+
+    function onCell(i, el){
+      if (locked || board[i]) return;
+      move(i, current, el);
+      const state = getState();
+      if (state.done){ finish(state); return; }
+      current = other(current);
+      setTurnText();
+
+      if (mode === 'ai' && current !== humanPlays){
+        locked = true;
+        setTimeout(()=>{ aiPlay(); locked = false; }, 140);
+      }
+    }
+
+    function move(i, player, el){
+      board[i] = player;
+      (el||cells[i]).textContent = player;
+      (el||cells[i]).setAttribute('disabled','');
+      vibrate(8);
+    }
+
+    function other(p){ return p === 'X' ? 'O' : 'X' }
+
+    function getState(){
+      for (const line of WINS){
+        const [a,b,c] = line;
+        if (board[a] && board[a]===board[b] && board[a]===board[c]){
+          return {done:true, winner:board[a], combo:line};
+        }
+      }
+      if (board.every(Boolean)) return {done:true, winner:null};
+      return {done:false};
+    }
+
+    function finish(state){
+      if (state.winner){
+        statusEl.textContent = `${state.winner} WINS — Dean Kath Rose!`;
+        for (const idx of state.combo) cells[idx].classList.add('win');
+        score[state.winner]++; persistScore(); updateScore(); vibrate(16);
+      } else {
+        statusEl.textContent = `Draw — Dean Kath Rose.`;
+        score.D++; persistScore(); updateScore();
+      }
+      for (const c of cells) c.setAttribute('disabled','');
+    }
+
+    function updateScore(){
+      scoreXEl.textContent = String(score.X);
+      scoreOEl.textContent = String(score.O);
+      scoreDEl.textContent = String(score.D);
+    }
+    function persistScore(){ try{ localStorage.setItem('dkr_score', JSON.stringify(score)); }catch(e){} }
+
+    function resetBoard(startPlayer='X'){
+      board = Array(9).fill(null);
+      current = startPlayer;
+      for (const c of cells){
+        c.textContent = '';
+        c.removeAttribute('disabled');
+        c.classList.remove('win');
+      }
+      statusEl.textContent = `${current}’s turn`;
+    }
+
+    function aiPlay(){
+      const i = (aiDifficulty === 'hard') ? bestMoveMinimax(current) : randomMove();
+      if (i == null) return;
+      move(i, current);
+      const state = getState();
+      if (state.done){ finish(state); return; }
+      current = other(current);
+      setTurnText();
+    }
+
+    function randomMove(){
+      const empty = board.map((v,idx)=>v?null:idx).filter(i=>i!==null);
+      if (!empty.length) return null;
+      return empty[Math.floor(Math.random()*empty.length)];
+    }
+
+    function bestMoveMinimax(player){
+      const maxPlayer = player;
+      function scoreState(state, depth){
+        if (state.winner === maxPlayer) return 10 - depth;
+        if (state.winner === other(maxPlayer)) return depth - 10;
+        return 0;
+      }
+      function minimax(b, cur, depth){
+        const check = checkBoard(b);
+        if (check.done) return {score: scoreState(check, depth)};
+        const moves = [];
+        for (let i=0;i<9;i++){
+          if (!b[i]){
+            const newB = b.slice();
+            newB[i] = cur;
+            const res = minimax(newB, other(cur), depth+1);
+            moves.push({i, score: res.score});
+          }
+        }
+        if (cur === maxPlayer){
+          let best = -Infinity, move = null;
+          for (const m of moves){ if (m.score > best){ best = m.score; move = m.i; } }
+          return {i:move, score:best};
+        } else {
+          let best = Infinity, move = null;
+          for (const m of moves){ if (m.score < best){ best = m.score; move = m.i; } }
+          return {i:move, score:best};
+        }
+      }
+      const res = minimax(board, player, 0);
+      return res.i;
+    }
+
+    function checkBoard(b){
+      for (const line of WINS){
+        const [a,b1,c] = line;
+        if (b[a] && b[a]===b[b1] && b[a]===b[c]) return {done:true, winner:b[a], combo:line};
+      }
+      if (b.every(Boolean)) return {done:true, winner:null};
+      return {done:false};
+    }
+
+    function setMode(newMode){
+      mode = newMode;
+      modeLabel.textContent = (mode === 'ai' ? 'VS AI' : '2 Players');
+      aiControls.classList.toggle('hidden', mode !== 'ai');
+      resetBoard('X');
+      if (mode === 'ai' && humanPlays === 'O'){
+        setTimeout(()=>{ aiPlay(); }, 160);
+      }
+      mode2pBtn.classList.toggle('active', mode==='2p');
+      modeAiBtn.classList.toggle('active', mode==='ai');
+      mode2pBtn.setAttribute('aria-selected', mode==='2p');
+      modeAiBtn.setAttribute('aria-selected', mode==='ai');
+    }
+
+    function setAIDifficulty(level){
+      aiDifficulty = level;
+      aiEasyBtn.classList.toggle('active', level==='easy');
+      aiHardBtn.classList.toggle('active', level==='hard');
+      aiEasyBtn.setAttribute('aria-selected', level==='easy');
+      aiHardBtn.setAttribute('aria-selected', level==='hard');
+      if (mode==='ai') resetBoard('X');
+    }
+
+    function setHumanMark(mark){
+      humanPlays = mark;
+      playXBtn.classList.toggle('active', mark==='X');
+      playOBtn.classList.toggle('active', mark==='O');
+      playXBtn.setAttribute('aria-selected', mark==='X');
+      playOBtn.setAttribute('aria-selected', mark==='O');
+      if (mode==='ai'){
+        resetBoard('X');
+        if (humanPlays === 'O'){ setTimeout(()=>{ aiPlay(); }, 160); }
+      }
+    }
+
+    mode2pBtn.addEventListener('click', ()=>setMode('2p'));
+    modeAiBtn.addEventListener('click', ()=>setMode('ai'));
+    aiEasyBtn.addEventListener('click', ()=>setAIDifficulty('easy'));
+    aiHardBtn.addEventListener('click', ()=>setAIDifficulty('hard'));
+    playXBtn.addEventListener('click', ()=>setHumanMark('X'));
+    playOBtn.addEventListener('click', ()=>setHumanMark('O'));
+
+    restartBtn.addEventListener('click', ()=>resetBoard(current));
+    newGameBtn.addEventListener('click', ()=>resetBoard('X'));
+
+    installBtn.addEventListener('click', ()=>{
+      alert("On iPhone:\n1) Tap the Share button in Safari.\n2) Choose “Add to Home Screen”.\n3) Launch from the icon like an app.");
+    });
+
+    buildBoard();
+    setMode('2p');
+    setAIDifficulty('easy');
+    setHumanMark('X');
+  </script>
+</body>
+</html>
